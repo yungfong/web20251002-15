@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡易收錢系統 - 標題與表格置中，計算機右移</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            padding: 20px 0 10px 0;
+            margin-bottom: 0;
+        }
+        /* 主內容區：用於包含表格區和計算機 */
+        .main-wrapper {
+            width: 95%; 
+            max-width: 1400px; 
+            margin: 0 auto; /* 讓主容器置中 */
+            padding: 20px 0;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between; /* 讓表格區塊和計算機左右分佈 */
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        /* 表格容器：確保表格區域整體置中 */
+        .table-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* 核心 CSS: 讓所有子元素 (座位區和歷史紀錄區) 置中 */
+            flex-grow: 1; /* 佔用可用空間 */
+        }
+        
+        .seat-section, .history-section {
+            width: 100%; 
+            max-width: 700px; /* 表格內容最大寬度 */
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .calculator-section {
+            width: 300px; 
+            min-width: 300px; 
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 20px; 
+            height: fit-content;
+        }
+
+        /* 座位表格樣式 */
+        .seat-row {
+            display: grid;
+            /* 欄位寬度定義 */
+            grid-template-columns: 50px 1.5fr 0.5fr 1.5fr 1fr 0.5fr; 
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+        .seat-header {
+            font-weight: bold;
+            background-color: #eef;
+            padding: 10px 0;
+            border-bottom: 2px solid #ccc;
+        }
+        .checkbox-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+        input[type="number"] {
+            width: 80%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            text-align: center;
+        }
+        input[type="checkbox"] {
+            transform: scale(1.3);
+            margin: 0;
+        }
+        .change-amount {
+            font-weight: bold;
+            color: #d9534f;
+            text-align: center;
+        }
+        
+        /* 計算機樣式 */
+        .calculator-display {
+            background-color: #222;
+            color: white;
+            padding: 15px;
+            text-align: right;
+            font-size: 2.2em;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .calculator-buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .calculator-buttons button {
+            padding: 20px;
+            font-size: 1.3em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #eee;
+        }
+        .calculator-buttons .operator {
+            background-color: #f0ad4e;
+            color: white;
+        }
+        .calculator-buttons .clear, .calculator-buttons .equal {
+            background-color: #5bc0de;
+            color: white;
+        }
+
+        /* 歷史紀錄表格樣式 */
+        .action-buttons {
+            text-align: center;
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .action-buttons button {
+            padding: 10px 20px;
+            font-size: 1em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+        }
+        .start-record { background-color: #5cb85c; }
+        .record-all { background-color: #337ab7; }
+        .clear-data { background-color: #d9534f; }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .history-table th, .history-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .history-table tbody {
+            display: block;
+            max-height: 250px;
+            overflow-y: auto;
+            width: 100%;
+        }
+        .history-table thead, .history-table tbody tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 style="text-align: center;">CASH NOTE</h1>
+
+    <div class="main-wrapper">
+        <div class="container">
+            
+            <div class="table-area">
+                <div class="seat-section">
+                    <div class="seat-row seat-header">
+                        <div class="seat-num">座號</div>
+                        <div>今日金額</div>
+                        <div>已繳錢</div>
+                        <div>繳費金額</div>
+                        <div>找錢金額</div>
+                        <div>已找錢</div>
+                    </div>
+                    
+                    <div id="seat-data">
+                        <script>
+                            for (let i = 1; i <= 15; i++) {
+                                document.write(`
+                                    <div class="seat-row" id="seat-${i}">
+                                        <div class="seat-num">${i}</div>
+                                        <div><input type="number" class="daily-amount" id="daily-amount-${i}" min="0" onchange="calculateChange(${i})"></div>
+                                        <div class="checkbox-container"><input type="checkbox" class="paid-checkbox" id="paid-${i}" disabled></div>
+                                        <div><input type="number" class="payment-amount" id="payment-amount-${i}" min="0" onchange="calculateChange(${i})"></div>
+                                        <div class="change-amount" id="change-amount-${i}">0</div>
+                                        <div class="checkbox-container"><input type="checkbox" class="changed-checkbox" id="changed-${i}"></div>
+                                    </div>
+                                `);
+                            }
+                        </script>
+                    </div>
+                </div>
+
+                <div class="history-section">
+                    <h2>登記歷史紀錄 (有金錢往來)</h2>
+                    <div class="action-buttons">
+                        <button class="start-record" onclick="toggleRecording()">啟用/停止 登記</button>
+                        <button class="record-all" onclick="recordAllTransactions()" id="record-all-btn" disabled>統一登記所有交易</button>
+                        <button class="clear-data" onclick="clearAllData()">重置所有資料 (每日循環)</button>
+                    </div>
+                    
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">時間</th>
+                                <th style="width: 8%;">座號</th>
+                                <th style="width: 14%;">今日金額</th>
+                                <th style="width: 14%;">實繳金額</th>
+                                <th style="width: 14%;">找零金額</th>
+                                <th style="width: 12%;">已繳錢</th>
+                                <th style="width: 12%;">已找錢</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-list">
+                            <tr><td colspan="7">尚無登記紀錄</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="calculator-section">
+                <h2>簡易計算機</h2>
+                <div class="calculator-display" id="calc-display" tabindex="0">0</div>
+                <div class="calculator-buttons">
+                    <button onclick="appendToDisplay('7')">7</button>
+                    <button onclick="appendToDisplay('8')">8</button>
+                    <button onclick="appendToDisplay('9')">9</button>
+                    <button class="operator" onclick="appendToDisplay('/')">÷</button>
+
+                    <button onclick="appendToDisplay('4')">4</button>
+                    <button onclick="appendToDisplay('5')">5</button>
+                    <button onclick="appendToDisplay('6')">6</button>
+                    <button class="operator" onclick="appendToDisplay('*')">×</button>
+
+                    <button onclick="appendToDisplay('1')">1</button>
+                    <button onclick="appendToDisplay('2')">2</button>
+                    <button onclick="appendToDisplay('3')">3</button>
+                    <button class="operator" onclick="appendToDisplay('-')">-</button>
+
+                    <button class="clear" onclick="clearDisplay()">C</button>
+                    <button onclick="appendToDisplay('0')">0</button>
+                    <button class="equal" onclick="calculateResult()">=</button>
+                    <button class="operator" onclick="appendToDisplay('+')">+</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRecordingEnabled = false;
+        let calculatorDisplay = document.getElementById('calc-display');
+        let currentInput = '0';
+        let calculatorActive = false;
+
+        // --- 座位功能：計算找零 ---
+        function calculateChange(seatNum) {
+            const dailyAmountInput = document.getElementById(`daily-amount-${seatNum}`);
+            const paymentAmountInput = document.getElementById(`payment-amount-${seatNum}`);
+            const changeAmountDiv = document.getElementById(`change-amount-${seatNum}`);
+            const paidCheckbox = document.getElementById(`paid-${seatNum}`);
+
+            const dailyAmount = parseFloat(dailyAmountInput.value || 0);
+            const paymentAmount = parseFloat(paymentAmountInput.value || 0);
+
+            const change = paymentAmount - dailyAmount;
+            
+            changeAmountDiv.textContent = change.toFixed(0); 
+            
+            // 自動勾選 "已繳錢" (應收 > 0 且 實繳 >= 應收)
+            paidCheckbox.checked = dailyAmount > 0 && paymentAmount >= dailyAmount;
+        }
+
+        // --- 紀錄/重置功能 ---
+
+        /** 統一登記所有有金錢往來的交易 */
+        function recordAllTransactions() {
+            if (!isRecordingEnabled) {
+                alert('請先點擊「啟用/停止 登記」按鈕啟用登記功能。');
+                return;
+            }
+
+            let transactionsCount = 0;
+            const historyList = document.getElementById('history-list');
+            
+            // 清除初始提示
+            if (historyList.firstElementChild && historyList.firstElementChild.querySelector('td') && historyList.firstElementChild.querySelector('td').textContent === '尚無登記紀錄') {
+                historyList.innerHTML = '';
+            }
+
+            for (let i = 1; i <= 15; i++) {
+                const dailyAmount = parseFloat(document.getElementById(`daily-amount-${i}`).value || 0);
+                const paymentAmount = parseFloat(document.getElementById(`payment-amount-${i}`).value || 0);
+
+                // 只登記有金錢往來的座號
+                if (dailyAmount !== 0 || paymentAmount !== 0) {
+                    const paid = document.getElementById(`paid-${i}`).checked ? '✔' : '✘';
+                    const changeAmount = document.getElementById(`change-amount-${i}`).textContent;
+                    const changed = document.getElementById(`changed-${i}`).checked ? '✔' : '✘';
+
+                    const now = new Date();
+                    const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+                    const newRow = historyList.insertRow(0);
+
+                    newRow.innerHTML = `
+                        <td>${timeString}</td>
+                        <td>${i}</td>
+                        <td>${dailyAmount.toFixed(0)}</td>
+                        <td>${paymentAmount.toFixed(0)}</td>
+                        <td style="color: ${changeAmount > 0 ? '#d9534f' : (changeAmount < 0 ? '#337ab7' : '#333')}; font-weight: bold;">${changeAmount}</td>
+                        <td>${paid}</td>
+                        <td>${changed}</td>
+                    `;
+                    transactionsCount++;
+                }
+            }
+
+            if (transactionsCount > 0) {
+                alert(`成功登記了 ${transactionsCount} 筆交易！`);
+            } else {
+                if (historyList.children.length === 0) {
+                     historyList.innerHTML = '<tr><td colspan="7">尚無登記紀錄</td></tr>';
+                }
+                alert('本次沒有新的有金錢往來的交易需要登記。');
+            }
+        }
+
+        /** 啟用/停止 歷史紀錄登記功能 */
+        function toggleRecording() {
+            isRecordingEnabled = !isRecordingEnabled;
+            const recordAllBtn = document.getElementById('record-all-btn');
+            recordAllBtn.disabled = !isRecordingEnabled;
+            
+            const startBtn = document.querySelector('.start-record');
+            if (isRecordingEnabled) {
+                startBtn.textContent = '停止 登記';
+                startBtn.style.backgroundColor = '#f0ad4e';
+            } else {
+                startBtn.textContent = '啟用 登記';
+                startBtn.style.backgroundColor = '#5cb85c';
+            }
+            alert(`統一登記功能已${isRecordingEnabled ? '啟用' : '停止'}。`);
+        }
+
+        /** 重置所有資料為初始狀態 */
+        function clearAllData() {
+            if (confirm('確定要清除所有座位的資料、勾選狀態和歷史紀錄嗎？ (適合每日開始時使用)')) {
+                // 清除座位資料
+                for (let i = 1; i <= 15; i++) {
+                    document.getElementById(`daily-amount-${i}`).value = '';
+                    document.getElementById(`payment-amount-${i}`).value = '';
+                    document.getElementById(`paid-${i}`).checked = false;
+                    document.getElementById(`changed-${i}`).checked = false;
+                    document.getElementById(`change-amount-${i}`).textContent = 0;
+                }
+
+                // 清除歷史紀錄
+                document.getElementById('history-list').innerHTML = '<tr><td colspan="7">尚無登記紀錄</td></tr>';
+                
+                // 重置計算機
+                clearDisplay();
+
+                // 停止登記
+                if (isRecordingEnabled) {
+                    toggleRecording();
+                }
+
+                alert('所有資料已重置！');
+            }
+        }
+
+
+        // --- 計算機功能 (鍵盤支援) ---
+
+        const keyMap = {
+            '7': '7', '8': '8', '9': '9', '/': '/',
+            '4': '4', '5': '5', '6': '6', '*': '*',
+            '1': '1', '2': '2', '3': '3', '-': '-',
+            '0': '0', '.': '.', '+': '+',
+            'Enter': '=', '=': '=', 'c': 'C', 'C': 'C', 'Delete': 'C'
+        };
+
+        calculatorDisplay.addEventListener('click', () => {
+            calculatorActive = true;
+            calculatorDisplay.focus();
+            calculatorDisplay.style.backgroundColor = '#444';
+        });
+        
+        calculatorDisplay.addEventListener('blur', () => {
+            calculatorActive = false;
+            calculatorDisplay.style.backgroundColor = '#222';
+        });
+
+
+        document.addEventListener('keydown', (event) => {
+            if (!calculatorActive) return;
+
+            const key = event.key;
+            const mappedValue = keyMap[key];
+
+            if (mappedValue) {
+                event.preventDefault();
+                
+                if (mappedValue === '=') {
+                    calculateResult();
+                } else if (mappedValue === 'C') {
+                    clearDisplay();
+                } else {
+                    appendToDisplay(mappedValue);
+                }
+            } else if (key === 'Backspace') {
+                event.preventDefault();
+                currentInput = currentInput.slice(0, -1) || '0';
+                calculatorDisplay.textContent = currentInput.replace(/\//g, '÷').replace(/\*/g, '×');
+            }
+        });
+
+        function appendToDisplay(value) {
+            const displayValue = value.replace('/', '÷').replace('*', '×');
+
+            if (currentInput === '0' && '123456789'.includes(value)) {
+                currentInput = value;
+            } else if (currentInput === '0' && value === '.') {
+                currentInput += value;
+            } else if (currentInput !== '0' || '+-*/'.includes(value) || value === '.') {
+                const lastChar = currentInput.slice(-1);
+                if ('+-*/'.includes(value) && '+-*/'.includes(lastChar)) {
+                    currentInput = currentInput.slice(0, -1) + value;
+                } else {
+                    currentInput += value;
+                }
+            }
+            calculatorDisplay.textContent = currentInput.replace(/\//g, '÷').replace(/\*/g, '×');
+        }
+
+        function clearDisplay() {
+            currentInput = '0';
+            calculatorDisplay.textContent = currentInput;
+        }
+
+        function calculateResult() {
+            try {
+                let calculation = currentInput.replace('÷', '/').replace('×', '*');
+                let result = eval(calculation);
+                
+                if (!isFinite(result)) {
+                     currentInput = '錯誤';
+                } else {
+                    currentInput = result.toString();
+                }
+
+                calculatorDisplay.textContent = currentInput.replace(/\//g, '÷').replace(/\*/g, '×');
+            } catch (error) {
+                currentInput = '錯誤';
+                calculatorDisplay.textContent = currentInput;
+            }
+        }
+    </script>
+
+</body>
+</html>

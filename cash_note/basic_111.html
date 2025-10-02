@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>繳費登記表 + 簡易計算機（右側）</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 1100px;
+    margin: auto;
+    padding: 20px;
+    display: flex;
+    gap: 20px;
+  }
+  #mainContent {
+    flex: 1;
+  }
+  h1, h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  label {
+    min-width: 80px;
+  }
+  input[type=number] {
+    width: 100px;
+    padding: 4px;
+  }
+  input[type=checkbox] {
+    transform: scale(1.3);
+    margin-left: 5px;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 30px;
+  }
+  th, td {
+    border: 1px solid #888;
+    padding: 8px;
+    text-align: center;
+  }
+  th {
+    background: #eee;
+  }
+  #calculator {
+    width: 260px;
+    border: 1px solid #aaa;
+    padding: 10px;
+    flex-shrink: 0;
+  }
+  #calc-display {
+    width: 100%;
+    height: 30px;
+    font-size: 18px;
+    margin-bottom: 10px;
+    text-align: right;
+    padding-right: 5px;
+  }
+  #calc-buttons button {
+    width: 55px;
+    height: 40px;
+    margin: 2px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #lastFocused {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #555;
+    height: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div id="mainContent">
+  <h1>繳費登記表</h1>
+
+  <form id="paymentForm">
+    <div id="studentsContainer"></div>
+    <button type="submit">登記所有資料</button>
+  </form>
+
+  <h2>登記紀錄</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>號碼</th>
+        <th>應繳金額</th>
+        <th>是否繳錢</th>
+        <th>繳費金額</th>
+        <th>自動找錢</th>
+        <th>已找錢</th>
+        <th>登記時間</th>
+      </tr>
+    </thead>
+    <tbody id="recordTableBody"></tbody>
+  </table>
+</div>
+
+<div id="calculator">
+  <h2>簡易計算機</h2>
+  <input type="text" id="calc-display" readonly value="0" />
+  <div id="calc-buttons">
+    <button type="button" data-val="7">7</button>
+    <button type="button" data-val="8">8</button>
+    <button type="button" data-val="9">9</button>
+    <button type="button" data-val="/">÷</button><br>
+    <button type="button" data-val="4">4</button>
+    <button type="button" data-val="5">5</button>
+    <button type="button" data-val="6">6</button>
+    <button type="button" data-val="*">×</button><br>
+    <button type="button" data-val="1">1</button>
+    <button type="button" data-val="2">2</button>
+    <button type="button" data-val="3">3</button>
+    <button type="button" data-val="-">−</button><br>
+    <button type="button" data-val="0">0</button>
+    <button type="button" data-val=".">.</button>
+    <button type="button" id="calc-clear">C</button>
+    <button type="button" data-val="+">＋</button><br>
+    <button type="button" id="calc-eval" style="width: 160px;">=</button>
+    <button type="button" id="calc-insert" style="width: 80px;">帶入欄位</button>
+  </div>
+  <div id="lastFocused">目前焦點欄位：無</div>
+</div>
+
+<script>
+  const studentsContainer = document.getElementById('studentsContainer');
+  const recordTableBody = document.getElementById('recordTableBody');
+  let lastFocusedInput = null;  // 紀錄最後焦點欄位
+
+  for(let i=1; i<=15; i++) {
+    const div = document.createElement('div');
+    div.className = 'row';
+    div.innerHTML = `
+      <label>號碼 ${i}</label>
+      <label>訂餐金額: <input type="number" min="0" step="0.01" id="due_${i}" required></label>
+      <label>已繳錢: <input type="checkbox" id="paid_${i}"></label>
+      <label>繳費金額: <input type="number" min="0" step="0.01" id="paidAmt_${i}" disabled></label>
+      <label>找錢: <span id="autoChange_${i}">0.00</span></label>
+      <label>已找錢: <input type="checkbox" id="foundChange_${i}"></label>
+    `;
+    studentsContainer.appendChild(div);
+
+    const paidCheckbox = div.querySelector(`#paid_${i}`);
+    const paidAmtInput = div.querySelector(`#paidAmt_${i}`);
+    const dueInput = div.querySelector(`#due_${i}`);
+    const autoChangeSpan = div.querySelector(`#autoChange_${i}`);
+
+    paidCheckbox.addEventListener('change', () => {
+      const enabled = paidCheckbox.checked;
+      paidAmtInput.disabled = !enabled;
+      if(!enabled) {
+        paidAmtInput.value = '';
+        autoChangeSpan.textContent = "0.00";
+      } else {
+        calcChange(i);
+      }
+    });
+
+    function calcChange(num) {
+      const dueVal = parseFloat(document.getElementById(`due_${num}`).value) || 0;
+      const paidVal = parseFloat(document.getElementById(`paidAmt_${num}`).value) || 0;
+      let changeVal = paidVal - dueVal;
+      if(changeVal < 0) changeVal = 0;
+      document.getElementById(`autoChange_${num}`).textContent = changeVal.toFixed(2);
+    }
+
+    paidAmtInput.addEventListener('input', () => calcChange(i));
+    dueInput.addEventListener('input', () => calcChange(i));
+
+    [dueInput, paidAmtInput].forEach(input => {
+      input.addEventListener('focus', () => {
+        lastFocusedInput = input;
+        document.getElementById('lastFocused').textContent = `目前焦點欄位：號碼 ${i} 的 "${input.previousSibling.textContent.trim() || input.parentElement.textContent.trim()}"`;
+      });
+    });
+  }
+
+  document.getElementById('paymentForm').addEventListener('submit', e => {
+    e.preventDefault();
+
+    for(let i=1; i<=15; i++) {
+      const due = parseFloat(document.getElementById(`due_${i}`).value) || 0;
+      const paidFlag = document.getElementById(`paid_${i}`).checked;
+      const paidAmt = paidFlag ? (parseFloat(document.getElementById(`paidAmt_${i}`).value) || 0) : 0;
+      const autoChangeText = document.getElementById(`autoChange_${i}`).textContent;
+      const foundChangeFlag = document.getElementById(`foundChange_${i}`).checked;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i}</td>
+        <td>${due.toFixed(2)}</td>
+        <td>${paidFlag ? '✅' : '❌'}</td>
+        <td>${paidFlag ? paidAmt.toFixed(2) : '-'}</td>
+        <td>${paidFlag ? autoChangeText : '-'}</td>
+        <td>${foundChangeFlag ? '✅' : '❌'}</td>
+        <td>${new Date().toLocaleString()}</td>
+      `;
+      recordTableBody.appendChild(tr);
+    }
+    alert('資料已登記，表格已更新！');
+  });
+
+  // 計算機
+  const calcDisplay = document.getElementById('calc-display');
+  const buttons = document.querySelectorAll('#calc-buttons button[data-val]');
+  const btnClear = document.getElementById('calc-clear');
+  const btnEval = document.getElementById('calc-eval');
+  const btnInsert = document.getElementById('calc-insert');
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(calcDisplay.value === '0') {
+        if(['+', '-', '*', '/'].includes(btn.dataset.val)) {
+          calcDisplay.value += btn.dataset.val;
+        } else {
+          calcDisplay.value = btn.dataset.val;
+        }
+      } else {
+        calcDisplay.value += btn.dataset.val;
+      }
+    });
+  });
+
+  btnClear.addEventListener('click', () => {
+    calcDisplay.value = '0';
+  });
+
+  btnEval.addEventListener('click', () => {
+    try {
+      // eslint-disable-next-line no-eval
+      let result = eval(calcDisplay.value.replace(/÷/g,'/').replace(/×/g,'*'));
+      if(typeof result === 'number' && !isNaN(result)) {
+        calcDisplay.value = result.toFixed(2);
+      } else {
+        calcDisplay.value = 'Error';
+      }
+    } catch {
+      calcDisplay.value = 'Error';
+    }
+  });
+
+  btnInsert.addEventListener('click', () => {
+    if(!lastFocusedInput) {
+      alert('請先點選欲帶入計算結果的欄位！');
+      return;
+    }
+    if(calcDisplay.value === 'Error' || calcDisplay.value === '0') {
+      alert('請先計算有效結果，再帶入！');
+      return;
+    }
+    lastFocusedInput.value = calcDisplay.value;
+    lastFocusedInput.dispatchEvent(new Event('input'));
+  });
+
+</script>
+
+</body>
+</html>
